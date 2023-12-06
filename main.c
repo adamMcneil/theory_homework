@@ -64,7 +64,7 @@ struct LineSegments* readInputFile(char* fileName) {
     int numberOfLineSegments;
     FILE *file;
     file = fopen(fileName, "r");
-    fscanf(file, "%d", &numberOfLineSegments);
+    fscanf(file, "%d\n", &numberOfLineSegments);
     printf("%d\n", numberOfLineSegments);
     struct LineSegments* lineSegments = buildLineSegments(numberOfLineSegments);
     for (int i = 0; i < numberOfLineSegments; i++) {
@@ -72,7 +72,7 @@ struct LineSegments* readInputFile(char* fileName) {
         double y1;
         double x2;
         double y2;
-        fscanf(file, "(%lf, %lf), (%lf, %lf)\n", &x1, &y1, &x2, &y2);
+        fscanf(file, "(%lf,%lf), (%lf,%lf)\n", &x1, &y1, &x2, &y2);
         printf("%lf\n", x1);
         lineSegments->lineSegments[i] = buildLineSegment(x1, y1, x2, y2);
     }
@@ -81,7 +81,7 @@ struct LineSegments* readInputFile(char* fileName) {
 
 bool anyIntersection(struct LineSegments* lineSegments) {
     for (int i = 0; i < lineSegments->numberOfLines-1; i++) {
-        for (int j = 0; j < lineSegments->numberOfLines; j++) {
+        for (int j = i+1; j < lineSegments->numberOfLines; j++) {
             if (intersect(lineSegments->lineSegments[i], lineSegments->lineSegments[j])) {
                 return true;
             }
@@ -91,6 +91,17 @@ bool anyIntersection(struct LineSegments* lineSegments) {
 }
 
 
+int countIntersection(struct LineSegments* lineSegments) {
+    int count = 0;
+    for (int i = 0; i < lineSegments->numberOfLines-1; i++) {
+        for (int j = i+1; j < lineSegments->numberOfLines; j++) {
+            if (intersect(lineSegments->lineSegments[i], lineSegments->lineSegments[j])) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
 
 int main(int argc, char* argv[]) {
     char* inputFileName = argv[1];
@@ -101,5 +112,8 @@ int main(int argc, char* argv[]) {
     printLineSegments(lineSegments);
     printf("%d\n", value);    
 
+
+    int count = countIntersection(lineSegments);
+    printf("%d\n", count);    
     return 0;
 }
