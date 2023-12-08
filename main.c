@@ -29,7 +29,7 @@ struct Points {
 
 void printPoints(struct Points* points) {
     for (int i = 0; i < points->numberOfPoints; i++) {
-        printf("(%f, %f)\n", points->points[i]->x, points->points[i]->y);
+        printf("(%f, %f) %d %d\n", points->points[i]->x, points->points[i]->y, points->points[i]->isStart, points->points[i]->index);
     }
 }
 
@@ -59,14 +59,14 @@ struct LineSegments {
 struct LineSegments* buildLineSegments(int numberOfLines) {
     struct LineSegments* lineSegments = (struct LineSegments*) malloc(sizeof(struct LineSegments*));
     lineSegments->numberOfLines = numberOfLines;
-    lineSegments->lineSegments = (struct LineSegment*) malloc(sizeof(struct LineSegment) * numberOfLines);
+    lineSegments->lineSegments = (struct LineSegment**) malloc(sizeof(struct LineSegment*) * numberOfLines);
     return lineSegments;
 }
 
 struct Points* buildPoints(struct LineSegments* lineSegments) {
     struct Points* points = (struct Points*) malloc(sizeof(struct Points*));
     points->numberOfPoints = 2 * lineSegments->numberOfLines; 
-    points->points = (struct Point*) malloc(sizeof(struct Point*) * 2 * lineSegments->numberOfLines);
+    points->points = (struct Point**) malloc(sizeof(struct Point*) * 2 * lineSegments->numberOfLines);
     for (int i = 0; i < lineSegments->numberOfLines; i++) {
         points->points[2 * i] = lineSegments->lineSegments[i]->start;
         points->points[2 * i + 1] = lineSegments->lineSegments[i]->end;
@@ -83,11 +83,13 @@ void printLineSegments(struct LineSegments* lineSegments) {
 bool isAbove(struct Point* point, struct LineSegment* lineSegment) {
     double slope = (lineSegment->end->y - lineSegment->start->y) / (lineSegment->end->x - lineSegment->start->x);
     double intercept = lineSegment->start->y - (lineSegment->start->x * slope);
+    // printf("y = %lfx + %lf\n", slope, intercept);
     double y = (slope * point->x) + intercept;
     return point->y > y;
 }
 
 bool intersect(struct LineSegment* l1, struct LineSegment* l2) {
+    // printf("here\n"); 
     return (isAbove(l1->start, l2) && !isAbove(l1->end, l2)) || ((!isAbove(l1->start, l2) && isAbove(l1->end, l2))) &&
             (isAbove(l2->start, l1) && !isAbove(l2->end, l1)) || ((!isAbove(l2->start, l1) && isAbove(l2->end, l1)));
 }
@@ -127,33 +129,126 @@ void sort(struct Points* points) {
 
 struct Label{
     int index;
-    int y;
+    double y;
 };
 
-void insert(int[] labels, int) {
+struct Label* buildLabel(int index, double y) {
+    struct Label* label = (struct Label*) malloc(sizeof(struct Label*));
+    label->index = index;
+    label->y = y;
+    return label;
+}
 
+int insert(struct Label* label, struct Label** labels, int length) {
+    int insertIndex = length;
+    for (int i = 0; i < length; i++) {
+        if (labels[i]->y > label->y) {
+            insertIndex = i;
+            break;
+        }
+    }
+    for (int i = length; i > insertIndex; i--) {
+        labels[i+1] = labels[i];
+    }
+    labels[insertIndex] = label;
+    return insertIndex;
+}
+
+int fakeInsert(struct Label* label, struct Label** labels, int length) {
+    int insertIndex = length;
+    for (int i = 0; i < length; i++) {
+        if (labels[i]->y > label->y) {
+            insertIndex = i;
+            break;
+        }
+    }
+    return insertIndex;
+}
+
+int delete(int index, struct Label** labels, int length) {
+    // printf("index: %d length: %d\n", index, length); 
+    int removeIndex = -1;
+    for (int i = 0; i < length; i++) {
+        if (labels[i]->index == index) {
+            removeIndex = index;
+            break;
+        } 
+    }
+    for (int i = removeIndex; i < length - 1; i++) {
+        labels[i] = labels[i+1];
+    }
+    return removeIndex;
+}
+
+void printLabels(struct Label** labels, int length) {
+    for (int i = 0; i < length; i++) {
+        printf("index: %d\n", labels[i]->index);
+        printf("y: %lf\n", labels[i]->y);
+    }
+    printf("\n");
 }
 
 bool anyIntersection(struct LineSegments* lineSegments) {
     struct Points* points = buildPoints(lineSegments);
     sort(points);
-    printPoints(points);
-    struct Label[] labels[points->numberOfPoints]; 
+    // printPoints(points);
+    struct Label** labels = (struct Label**) malloc(sizeof(struct Label*) * lineSegments->numberOfLines + 1); 
+    int length = 0;
     for (int i = 0; i < points->numberOfPoints; i++) {
-        
-        int label = 0;
-        if (points->points[i]->isStart) {
-            if (intersect(lineSegments->lineSegments[i], lineSegments->lineSegments[])) {
+        // printLabels(labels, length);
+        struct Point* currentPoint = points->points[i];
+        if (currentPoint->isStart) {
+            int currentIndex = insert(buildLabel(currentPoint->index, currentPoint->y), labels, length);
+            length++;
+            if (currentIndex-1 > -1 && intersect(lineSegments->lineSegments[currentPoint->index], lineSegments->lineSegments[currentIndex-1])) {
                 return true;
             }
-            if (intersect(lineSegments->lineSegments[i], lineSegments->lineSegments[])) {
+            if (currentIndex+1 < length && intersect(lineSegments->lineSegments[currentPoint->index], lineSegments->lineSegments[currentIndex+1])) {
                 return true;
             }
         }
         else {
-            if (intersect(lineSegments->lineSegments[], lineSegments->lineSegments[]))
+            int currentIndex = fakeInsert(buildLabel(currentPoint->index, currentPoint->y), labels, length);
+            if (currentIndex-1 > -1 && currentIndex+1 < length && intersect(lineSegments->lineSegments[currentIndex-1], lineSegments->lineSegments[currentIndex+1])){
+                return true;
+            }
+            delete(currentPoint->index, labels, length);
+            length--;
         }
     }
+}
+
+int countIntersection(struct LineSegments* lineSegments) {
+    int count = 0;
+    struct Points* points = buildPoints(lineSegments);
+    sort(points);
+    // printPoints(points);
+    struct Label** labels = (struct Label**) malloc(sizeof(struct Label*) * lineSegments->numberOfLines); 
+    int length = 0;
+    for (int i = 0; i < points->numberOfPoints; i++) {
+        // printLabels(labels, length);
+        struct Point* currentPoint = points->points[i];
+        if (currentPoint->isStart) {
+            int currentIndex = insert(buildLabel(currentPoint->index, currentPoint->y), labels, length);
+            length++;
+            printLabels(labels, length);
+            if (currentIndex-1 > -1 && intersect(lineSegments->lineSegments[currentPoint->index], lineSegments->lineSegments[currentIndex-1])) {
+                count++;
+            }
+            if (currentIndex+1 < length && intersect(lineSegments->lineSegments[currentPoint->index], lineSegments->lineSegments[currentIndex+1])) {
+                count++;
+            }
+        }
+        else {
+            int currentIndex = delete(currentPoint->index, labels, length);
+            length--;
+            printLabels(labels, length);
+            if (currentIndex-1 > -1 && currentIndex < length && intersect(lineSegments->lineSegments[currentIndex-1], lineSegments->lineSegments[currentIndex])){
+                count++;
+            }
+        }
+    }
+    return count;
 }
 
 bool anyIntersectionBruteForce(struct LineSegments* lineSegments) {
@@ -183,12 +278,12 @@ int main(int argc, char* argv[]) {
     char* inputFileName = argv[1];
     char* outputFileName = argv[2];
     
-    struct LineSegments* lineSegments = readInputFile(inputFileName);
+    struct LineSegments* lineSegments = readInputFile("input1.txt");
     bool value = anyIntersection(lineSegments);
-    // printLineSegments(lineSegments);
-    // printf("%d\n", value);    
+    printLineSegments(lineSegments);
+    printf("%d\n", value);    
 
-    // int count = countIntersectionBruteForce(lineSegments);
-    // printf("%d\n", count);    
+    int count = countIntersection(lineSegments);
+    printf("%d\n", count);    
     return 0;
 }
